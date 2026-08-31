@@ -1,4 +1,4 @@
-##Movie-rater
+# Movie-rater
 
 **Proyect pitch**
 
