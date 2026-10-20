@@ -9,4 +9,4 @@
 - **CODE_REPO:** https://github.com/code-corhuila/movie-rater
 - **BASELINE:** Movie Rater frontend; origen: repositorio del equipo, rama y commit de origen por confirmar.
 - **REFLECTION_DOC:** [URL de tu documento de reflexión de Google Docs]
-- **MY_SCREENS:** Por completar en CP1
+- **MY_SCREENS:** Login, Home (búsqueda y listado de películas), MovieDetail (detalle de película).
