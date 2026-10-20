@@ -144,7 +144,8 @@ const handleSaveReview = async () => {
 <div className="rating-buttons">
   {[1, 2, 3, 4, 5].map((value) => (
     <IonButton
-      key={value}
+  key={value}
+  aria-label={`Calificar película con ${value} estrellas`}
       fill={rating === value ? 'solid' : 'outline'}
       onClick={() => setRating(value)}
     >

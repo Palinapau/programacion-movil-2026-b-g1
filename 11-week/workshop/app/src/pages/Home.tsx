@@ -80,6 +80,7 @@ const Home: React.FC = () => {
           </IonText>
 
           <IonSearchbar
+            aria-label="Buscar películas por título"
             value={query}
             placeholder="Buscar película..."
             animated={true}
