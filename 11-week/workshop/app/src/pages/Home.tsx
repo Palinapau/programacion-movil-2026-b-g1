@@ -63,7 +63,7 @@ const Home: React.FC = () => {
            <IonButton
   slot="end"
   fill="clear"
-  routerLink="/profile"
+  routerLink="/tabs/profile"
 >
   Mi perfil
 </IonButton>
