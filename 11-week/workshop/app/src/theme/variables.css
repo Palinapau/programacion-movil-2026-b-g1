@@ -1,2 +1,64 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+
+/* Movie Rater — Design tokens (CP2) */
+
+:root {
+  /* Tipografía */
+  --ion-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+
+  /* Colores generales */
+  --ion-background-color: #F8FAFC;
+  --ion-background-color-rgb: 248, 250, 252;
+  --ion-text-color: #172033;
+  --ion-text-color-rgb: 23, 32, 51;
+
+  --ion-toolbar-background: #FFFFFF;
+  --ion-toolbar-color: #172033;
+  --ion-item-background: #FFFFFF;
+
+  /* Primario: índigo */
+  --ion-color-primary: #4F46E5;
+  --ion-color-primary-rgb: 79, 70, 229;
+  --ion-color-primary-contrast: #FFFFFF;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #473FCE;
+  --ion-color-primary-tint: #6159E8;
+
+  /* Secundario: verde azulado */
+  --ion-color-secondary: #0F766E;
+  --ion-color-secondary-rgb: 15, 118, 110;
+  --ion-color-secondary-contrast: #FFFFFF;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #0D6A63;
+  --ion-color-secondary-tint: #27847D;
+
+  /* Éxito */
+  --ion-color-success: #15803D;
+  --ion-color-success-rgb: 21, 128, 61;
+  --ion-color-success-contrast: #FFFFFF;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #137337;
+  --ion-color-success-tint: #2C8D50;
+
+  /* Error: color danger de Ionic */
+  --ion-color-danger: #B91C1C;
+  --ion-color-danger-rgb: 185, 28, 28;
+  --ion-color-danger-contrast: #FFFFFF;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #A61719;
+  --ion-color-danger-tint: #C13030;
+
+  /* Espaciado reutilizable */
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-6: 24px;
+  --app-space-8: 32px;
+
+  /* Tamaños tipográficos */
+  --app-font-size-sm: 14px;
+  --app-font-size-md: 16px;
+  --app-font-size-lg: 20px;
+  --app-font-size-xl: 28px;
+}
