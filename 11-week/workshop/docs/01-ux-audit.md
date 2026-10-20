@@ -31,3 +31,4 @@ flowchart TD
     E --> G[Seleccionar película]
     G --> H[MovieDetail]
     B --> I[Mi perfil]
+```
