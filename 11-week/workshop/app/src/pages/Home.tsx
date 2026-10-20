@@ -96,12 +96,19 @@ const Home: React.FC = () => {
             </div>
           )}
 
-          {error && (
+            {error && (
             <IonText color="danger">
-              <p>{error}</p>
+              <p role="alert">{error}</p>
+            <IonButton onClick={() => handleSearch(query)}>
+             Reintentar búsqueda
+           </IonButton>
             </IonText>
           )}
-
+            {!loading && !error && query.trim() !== '' && movies.length === 0 && (
+            <IonText>
+              <p role="status">No se encontraron películas. Prueba con otro título.</p>
+            </IonText>
+          )}
           <div className="movie-list">
             {movies.map((movie) => (
           <IonCard
