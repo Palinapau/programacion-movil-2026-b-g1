@@ -34,64 +34,84 @@ const MovieDetail: React.FC = () => {
   const [review, setReview] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
 
-const handleSaveReview = async () => {
-  if (rating === 0) {
-    setSaveMessage('Selecciona una calificación de 1 a 5.');
-    return;
-  }
-
-  const token = localStorage.getItem('token');
-
-  if (!token) {
-    setSaveMessage('Debes iniciar sesión para guardar una reseña.');
-    return;
-  }
-
-  try {
-    setSaveMessage('Guardando reseña...');
-
-    await crearResena(
-      Number(id),
-      rating,
-      review,
-      token
-    );
-
-    setSaveMessage('¡Reseña guardada correctamente!');
-    setReview('');
-  } catch (err) {
-    console.error('Error guardando reseña:', err);
-    setSaveMessage('No se pudo guardar la reseña.');
-  }
-};
   useEffect(() => {
+    let activo = true;
+
     const loadMovie = async () => {
+      const movieId = Number(id);
+
+      if (!id || !Number.isInteger(movieId) || movieId <= 0) {
+        setMovie(null);
+        setError('El identificador de la película no es válido.');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError('');
+        setMovie(null);
 
-        const result = await getMovie(Number(id));
-        console.log('PELÍCULA COMPLETA:', result);
+        const result = await getMovie(movieId);
+
+        if (!activo) return;
+
+        if (!result) {
+          setError('No se encontró la película solicitada.');
+          return;
+        }
+
         setMovie(result);
       } catch (err) {
         console.error('Error cargando película:', err);
-        setError('No se pudo cargar la película.');
+        if (activo) {
+          setError('No se pudo cargar la película. Inténtalo de nuevo.');
+        }
       } finally {
-        setLoading(false);
+        if (activo) setLoading(false);
       }
     };
 
     loadMovie();
+
+    return () => {
+      activo = false;
+    };
   }, [id]);
+
+  const handleSaveReview = async () => {
+    if (rating === 0) {
+      setSaveMessage('Selecciona una calificación de 1 a 5.');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      setSaveMessage('Debes iniciar sesión para guardar una reseña.');
+      return;
+    }
+
+    try {
+      setSaveMessage('Guardando reseña...');
+
+      await crearResena(Number(id), rating, review, token);
+
+      setSaveMessage('¡Reseña guardada correctamente!');
+      setReview('');
+    } catch (err) {
+      console.error('Error guardando reseña:', err);
+      setSaveMessage('No se pudo guardar la reseña.');
+    }
+  };
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
-            <IonBackButton defaultHref="/home" />
+            <IonBackButton defaultHref="/tabs/home" />
           </IonButtons>
-
           <IonTitle>Detalle</IonTitle>
         </IonToolbar>
       </IonHeader>
@@ -104,13 +124,19 @@ const handleSaveReview = async () => {
           </div>
         )}
 
-        {error && (
+        {!loading && error && (
           <IonText color="danger">
             <p className="detail-error">{error}</p>
           </IonText>
         )}
 
-        {movie && (
+        {!loading && !error && !movie && (
+          <IonText>
+            <p className="detail-error">No se encontró la película.</p>
+          </IonText>
+        )}
+
+        {!loading && movie && (
           <div className="movie-detail">
             {movie.poster_path && (
               <IonImg
@@ -131,56 +157,48 @@ const handleSaveReview = async () => {
 
                 <p>
                   <strong>Calificación TMDB:</strong>{' '}
-                  ⭐ {movie.vote_average.toFixed(1)}
+                  ⭐ {Number(movie.vote_average ?? 0).toFixed(1)}
                 </p>
 
                 <h2>Sinopsis</h2>
+                <p>{movie.overview || 'No hay una sinopsis disponible.'}</p>
 
-                <p>
-                  {movie.overview || 'No hay una sinopsis disponible.'}
-                </p>
                 <h2>Tu calificación</h2>
+                <div className="rating-buttons">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <IonButton
+                      key={value}
+                      aria-label={`Calificar película con ${value} estrellas`}
+                      fill={rating === value ? 'solid' : 'outline'}
+                      onClick={() => setRating(value)}
+                    >
+                      {value} ⭐
+                    </IonButton>
+                  ))}
+                </div>
 
-<div className="rating-buttons">
-  {[1, 2, 3, 4, 5].map((value) => (
-    <IonButton
-  key={value}
-  aria-label={`Calificar película con ${value} estrellas`}
-      fill={rating === value ? 'solid' : 'outline'}
-      onClick={() => setRating(value)}
-    >
-      {value} ⭐
-    </IonButton>
-  ))}
-</div>
+                <IonItem>
+                  <IonLabel position="stacked">Tu reseña</IonLabel>
+                  <IonTextarea
+                    value={review}
+                    placeholder="Escribe tu opinión sobre la película..."
+                    autoGrow={true}
+                    onIonInput={(event) =>
+                      setReview(event.detail.value ?? '')
+                    }
+                  />
+                </IonItem>
 
-<IonItem>
-  <IonLabel position="stacked">
-    Tu reseña
-  </IonLabel>
+                <IonButton expand="block" onClick={handleSaveReview}>
+                  Guardar reseña
+                </IonButton>
 
-  <IonTextarea
-    value={review}
-    placeholder="Escribe tu opinión sobre la película..."
-    autoGrow={true}
-    onIonInput={(event) =>
-      setReview(event.detail.value ?? '')
-    }
-  />
-</IonItem>
-
-<IonButton
-  expand="block"
-  onClick={handleSaveReview}
->
-  Guardar reseña
-</IonButton>
-
-{saveMessage && (
-  <IonText>
-    <p>{saveMessage}</p>
-  </IonText>
-)}              </IonCardContent>
+                {saveMessage && (
+                  <IonText>
+                    <p>{saveMessage}</p>
+                  </IonText>
+                )}
+              </IonCardContent>
             </IonCard>
           </div>
         )}
