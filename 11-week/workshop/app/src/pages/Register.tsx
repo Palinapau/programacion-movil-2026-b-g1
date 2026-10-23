@@ -1,3 +1,4 @@
+
 import {
   IonButton,
   IonContent,
@@ -25,23 +26,50 @@ const Register: React.FC = () => {
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [error, setError] = useState('');
 
-  const handleRegister = async () => {
-    if (!nombre || !correo || !contrasena || !confirmarContrasena) {
-      setError('Completa todos los campos.');
-      return;
-    }
+  const [tocado, setTocado] = useState({
+    nombre: false,
+    correo: false,
+    contrasena: false,
+    confirmarContrasena: false,
+  });
 
-    if (contrasena !== confirmarContrasena) {
-      setError('Las contraseñas no coinciden.');
-      return;
-    }
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+
+  const errores = {
+    nombre: nombre.trim() ? '' : 'El nombre es obligatorio.',
+    correo: !correo.trim()
+      ? 'El correo es obligatorio.'
+      : !correoValido
+        ? 'Ingresa un correo válido.'
+        : '',
+    contrasena: contrasena ? '' : 'La contraseña es obligatoria.',
+    confirmarContrasena: !confirmarContrasena
+      ? 'Confirma tu contraseña.'
+      : confirmarContrasena !== contrasena
+        ? 'Las contraseñas no coinciden.'
+        : '',
+  };
+
+  const formularioValido = Object.values(errores).every(
+    (mensaje) => mensaje === ''
+  );
+
+  const handleRegister = async () => {
+    setTocado({
+      nombre: true,
+      correo: true,
+      contrasena: true,
+      confirmarContrasena: true,
+    });
+
+    if (!formularioValido) return;
 
     try {
       setError('');
 
       const data = await registrarUsuario(
-        nombre,
-        correo,
+        nombre.trim(),
+        correo.trim(),
         contrasena
       );
 
@@ -49,15 +77,15 @@ const Register: React.FC = () => {
       localStorage.setItem('usuario', JSON.stringify(data.usuario));
 
       navigate('/home');
-   } catch (err) {
-  console.error('Error registrando usuario:', err);
+    } catch (err) {
+      console.error('Error registrando usuario:', err);
 
-  if (err instanceof Error) {
-    setError(err.message);
-  } else {
-    setError('No se pudo crear la cuenta.');
-  }
-}
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo crear la cuenta.'
+      );
+    }
   };
 
   return (
@@ -73,74 +101,90 @@ const Register: React.FC = () => {
           <h1>Crear cuenta</h1>
 
           <IonItem>
-            <IonLabel position="stacked">
-              Nombre
-            </IonLabel>
-
+            <IonLabel position="stacked">Nombre</IonLabel>
             <IonInput
               value={nombre}
               placeholder="Tu nombre"
-              onIonInput={(event) =>
-                setNombre(event.detail.value ?? '')
-              }
+              aria-label="Nombre"
+              onIonInput={(event) => {
+                setNombre(event.detail.value ?? '');
+                setTocado((prev) => ({ ...prev, nombre: true }));
+              }}
             />
           </IonItem>
+          {tocado.nombre && errores.nombre && (
+            <IonText color="danger">
+              <p className="field-error">{errores.nombre}</p>
+            </IonText>
+          )}
 
           <IonItem>
-            <IonLabel position="stacked">
-              Correo
-            </IonLabel>
-
+            <IonLabel position="stacked">Correo</IonLabel>
             <IonInput
               type="email"
               value={correo}
               placeholder="correo@ejemplo.com"
-              onIonInput={(event) =>
-                setCorreo(event.detail.value ?? '')
-              }
+              aria-label="Correo electrónico"
+              onIonInput={(event) => {
+                setCorreo(event.detail.value ?? '');
+                setTocado((prev) => ({ ...prev, correo: true }));
+              }}
             />
           </IonItem>
+          {tocado.correo && errores.correo && (
+            <IonText color="danger">
+              <p className="field-error">{errores.correo}</p>
+            </IonText>
+          )}
 
           <IonItem>
-            <IonLabel position="stacked">
-              Contraseña
-            </IonLabel>
-
+            <IonLabel position="stacked">Contraseña</IonLabel>
             <IonInput
               type="password"
               value={contrasena}
               placeholder="Tu contraseña"
-              onIonInput={(event) =>
-                setContrasena(event.detail.value ?? '')
-              }
+              aria-label="Contraseña"
+              onIonInput={(event) => {
+                setContrasena(event.detail.value ?? '');
+                setTocado((prev) => ({ ...prev, contrasena: true }));
+              }}
             />
           </IonItem>
+          {tocado.contrasena && errores.contrasena && (
+            <IonText color="danger">
+              <p className="field-error">{errores.contrasena}</p>
+            </IonText>
+          )}
 
           <IonItem>
-            <IonLabel position="stacked">
-              Confirmar contraseña
-            </IonLabel>
-
+            <IonLabel position="stacked">Confirmar contraseña</IonLabel>
             <IonInput
               type="password"
               value={confirmarContrasena}
               placeholder="Repite tu contraseña"
-              onIonInput={(event) =>
-                setConfirmarContrasena(event.detail.value ?? '')
-              }
+              aria-label="Confirmar contraseña"
+              onIonInput={(event) => {
+                setConfirmarContrasena(event.detail.value ?? '');
+                setTocado((prev) => ({
+                  ...prev,
+                  confirmarContrasena: true,
+                }));
+              }}
             />
           </IonItem>
-
-          {error && (
+          {tocado.confirmarContrasena && errores.confirmarContrasena && (
             <IonText color="danger">
-              <p>{error}</p>
+              <p className="field-error">{errores.confirmarContrasena}</p>
             </IonText>
           )}
 
-          <IonButton
-            expand="block"
-            onClick={handleRegister}
-          >
+          {error && (
+            <IonText color="danger">
+              <p role="alert">{error}</p>
+            </IonText>
+          )}
+
+          <IonButton expand="block" onClick={handleRegister}>
             Registrarme
           </IonButton>
 
