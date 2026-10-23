@@ -1,4 +1,3 @@
-
 import {
   IonButton,
   IonContent,
@@ -10,8 +9,8 @@ import {
   IonText,
   IonTitle,
   IonToolbar,
+  IonToast,
 } from '@ionic/react';
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { registrarUsuario } from '../services/api';
@@ -19,13 +18,14 @@ import './Auth.css';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
-
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [confirmarContrasena, setConfirmarContrasena] = useState('');
   const [error, setError] = useState('');
-
+  const [cargando, setCargando] = useState(false);
+  const [toastAbierto, setToastAbierto] = useState(false);
+  const [mensajeToast, setMensajeToast] = useState('');
   const [tocado, setTocado] = useState({
     nombre: false,
     correo: false,
@@ -33,7 +33,9 @@ const Register: React.FC = () => {
     confirmarContrasena: false,
   });
 
-  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
+  const correoValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    correo.trim()
+  );
 
   const errores = {
     nombre: nombre.trim() ? '' : 'El nombre es obligatorio.',
@@ -42,7 +44,9 @@ const Register: React.FC = () => {
       : !correoValido
         ? 'Ingresa un correo válido.'
         : '',
-    contrasena: contrasena ? '' : 'La contraseña es obligatoria.',
+    contrasena: contrasena
+      ? ''
+      : 'La contraseña es obligatoria.',
     confirmarContrasena: !confirmarContrasena
       ? 'Confirma tu contraseña.'
       : confirmarContrasena !== contrasena
@@ -62,29 +66,40 @@ const Register: React.FC = () => {
       confirmarContrasena: true,
     });
 
-    if (!formularioValido) return;
+    if (!formularioValido || cargando) {
+      return;
+    }
+
+    setCargando(true);
+    setError('');
 
     try {
-      setError('');
-
-      const data = await registrarUsuario(
+      const respuesta = await registrarUsuario(
         nombre.trim(),
         correo.trim(),
         contrasena
       );
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      localStorage.setItem('token', respuesta.token);
+      localStorage.setItem(
+        'usuario',
+        JSON.stringify(respuesta.usuario)
+      );
+
+      setMensajeToast('¡Cuenta creada correctamente!');
+      setToastAbierto(true);
 
       navigate('/home');
     } catch (err) {
-      console.error('Error registrando usuario:', err);
-
       setError(
         err instanceof Error
           ? err.message
-          : 'No se pudo crear la cuenta.'
+          : 'No fue posible crear la cuenta. Inténtalo de nuevo.'
       );
+      setMensajeToast('No se pudo crear la cuenta. Verifica el servidor.');
+      setToastAbierto(true);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -92,20 +107,21 @@ const Register: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Movie Rater</IonTitle>
+          <IonTitle>Crear cuenta</IonTitle>
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen>
+      <IonContent className="ion-padding">
         <div className="auth-container">
           <h1>Crear cuenta</h1>
 
           <IonItem>
             <IonLabel position="stacked">Nombre</IonLabel>
             <IonInput
-              value={nombre}
-              placeholder="Tu nombre"
               aria-label="Nombre"
+              placeholder="Tu nombre"
+              value={nombre}
+              autocomplete="name"
               onIonInput={(event) => {
                 setNombre(event.detail.value ?? '');
                 setTocado((prev) => ({ ...prev, nombre: true }));
@@ -114,17 +130,18 @@ const Register: React.FC = () => {
           </IonItem>
           {tocado.nombre && errores.nombre && (
             <IonText color="danger">
-              <p className="field-error">{errores.nombre}</p>
+              <p>{errores.nombre}</p>
             </IonText>
           )}
 
           <IonItem>
             <IonLabel position="stacked">Correo</IonLabel>
             <IonInput
-              type="email"
-              value={correo}
-              placeholder="correo@ejemplo.com"
               aria-label="Correo electrónico"
+              type="email"
+              placeholder="correo@ejemplo.com"
+              value={correo}
+              autocomplete="email"
               onIonInput={(event) => {
                 setCorreo(event.detail.value ?? '');
                 setTocado((prev) => ({ ...prev, correo: true }));
@@ -133,36 +150,43 @@ const Register: React.FC = () => {
           </IonItem>
           {tocado.correo && errores.correo && (
             <IonText color="danger">
-              <p className="field-error">{errores.correo}</p>
+              <p>{errores.correo}</p>
             </IonText>
           )}
 
           <IonItem>
             <IonLabel position="stacked">Contraseña</IonLabel>
             <IonInput
-              type="password"
-              value={contrasena}
-              placeholder="Tu contraseña"
               aria-label="Contraseña"
+              type="password"
+              placeholder="Tu contraseña"
+              value={contrasena}
+              autocomplete="new-password"
               onIonInput={(event) => {
                 setContrasena(event.detail.value ?? '');
-                setTocado((prev) => ({ ...prev, contrasena: true }));
+                setTocado((prev) => ({
+                  ...prev,
+                  contrasena: true,
+                }));
               }}
             />
           </IonItem>
           {tocado.contrasena && errores.contrasena && (
             <IonText color="danger">
-              <p className="field-error">{errores.contrasena}</p>
+              <p>{errores.contrasena}</p>
             </IonText>
           )}
 
           <IonItem>
-            <IonLabel position="stacked">Confirmar contraseña</IonLabel>
+            <IonLabel position="stacked">
+              Confirmar contraseña
+            </IonLabel>
             <IonInput
-              type="password"
-              value={confirmarContrasena}
-              placeholder="Repite tu contraseña"
               aria-label="Confirmar contraseña"
+              type="password"
+              placeholder="Repite tu contraseña"
+              value={confirmarContrasena}
+              autocomplete="new-password"
               onIonInput={(event) => {
                 setConfirmarContrasena(event.detail.value ?? '');
                 setTocado((prev) => ({
@@ -172,11 +196,12 @@ const Register: React.FC = () => {
               }}
             />
           </IonItem>
-          {tocado.confirmarContrasena && errores.confirmarContrasena && (
-            <IonText color="danger">
-              <p className="field-error">{errores.confirmarContrasena}</p>
-            </IonText>
-          )}
+          {tocado.confirmarContrasena &&
+            errores.confirmarContrasena && (
+              <IonText color="danger">
+                <p>{errores.confirmarContrasena}</p>
+              </IonText>
+            )}
 
           {error && (
             <IonText color="danger">
@@ -184,17 +209,29 @@ const Register: React.FC = () => {
             </IonText>
           )}
 
-          <IonButton expand="block" onClick={handleRegister}>
-            Registrarme
-          </IonButton>
+          <IonButton
+  expand="block"
+  onClick={handleRegister}
+  disabled={cargando || !formularioValido}
+>
+  {cargando ? 'Registrando…' : 'Registrarme'}
+</IonButton>
 
           <IonButton
             expand="block"
             fill="clear"
             onClick={() => navigate('/login')}
+            disabled={cargando}
           >
             Ya tengo una cuenta
           </IonButton>
+          <IonToast
+  isOpen={toastAbierto}
+  message={mensajeToast}
+  duration={2500}
+  onDidDismiss={() => setToastAbierto(false)}
+  position="top"
+/>
         </div>
       </IonContent>
     </IonPage>
