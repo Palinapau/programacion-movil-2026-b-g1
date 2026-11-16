@@ -1,0 +1,340 @@
+diff --git a/package.json b/package.json
+index 7493cd3..7c42e8f 100644
+--- a/package.json
++++ b/package.json
+@@ -14,6 +14,7 @@
+   "dependencies": {
+     "@capacitor/app": "8.1.1",
+     "@capacitor/core": "8.5.1",
++    "@capacitor/geolocation": "^8.2.4",
+     "@capacitor/haptics": "8.0.2",
+     "@capacitor/keyboard": "8.0.5",
+     "@capacitor/preferences": "^8.0.1",
+diff --git a/src/components/UbicacionCard.tsx b/src/components/UbicacionCard.tsx
+new file mode 100644
+index 0000000..256e6a0
+--- /dev/null
++++ b/src/components/UbicacionCard.tsx
+@@ -0,0 +1,58 @@
++import { IonButton, IonCard, IonSpinner } from '@ionic/react';
++import { useState } from 'react';
++import { formatearCoordenadas } from '../services/formato';
++import { obtenerUbicacion, ResultadoUbicacion } from '../services/ubicacion';
++
++// Tarjeta que usa el plugin de ubicación: pide el permiso, muestra las coordenadas
++// y, si el usuario lo niega, explica qué pasó sin romper el resto de la app.
++
++type Estado = ResultadoUbicacion | { estado: 'inicial' } | { estado: 'cargando' };
++
++const UbicacionCard: React.FC = () => {
++  const [resultado, setResultado] = useState<Estado>({ estado: 'inicial' });
++
++  const usarMiUbicacion = async () => {
++    setResultado({ estado: 'cargando' });
++    setResultado(await obtenerUbicacion());
++  };
++
++  return (
++    <IonCard className="que-veo-card ubicacion-card">
++      <span className="section-eyebrow">CERCA DE TI</span>
++      <h2>Tu ubicación</h2>
++
++      {resultado.estado === 'inicial' && (
++        <p>Permite el acceso a tu ubicación para saber desde dónde estás viendo cine.</p>
++      )}
++
++      {resultado.estado === 'cargando' && (
++        <div className="home-state">
++          <IonSpinner name="crescent" />
++          <p>Obteniendo tu ubicación...</p>
++        </div>
++      )}
++
++      {resultado.estado === 'concedido' && (
++        <p>📍 {formatearCoordenadas(resultado.latitud, resultado.longitud)}</p>
++      )}
++
++      {resultado.estado === 'denegado' && (
++        <p role="alert">
++          Sin permiso de ubicación no podemos mostrarte dónde estás. La app sigue funcionando
++          igual; puedes activar el permiso en los ajustes del dispositivo y volver a intentar.
++        </p>
++      )}
++
++      {resultado.estado === 'error' && <p role="alert">{resultado.mensaje}</p>}
++
++      <IonButton
++        onClick={usarMiUbicacion}
++        disabled={resultado.estado === 'cargando'}
++      >
++        {resultado.estado === 'inicial' ? 'Usar mi ubicación' : 'Intentar de nuevo'}
++      </IonButton>
++    </IonCard>
++  );
++};
++
++export default UbicacionCard;
+diff --git a/src/pages/Home.busqueda.test.tsx b/src/pages/Home.busqueda.test.tsx
+new file mode 100644
+index 0000000..225b24b
+--- /dev/null
++++ b/src/pages/Home.busqueda.test.tsx
+@@ -0,0 +1,64 @@
++import { beforeEach, describe, expect, test, vi } from 'vitest';
++import { fireEvent, render, screen, waitFor } from '@testing-library/react';
++
++// Problema 2: la búsqueda del Home muestra cargando / datos / error y permite reintentar
++// cuando falla la red. El fallo de red se simula haciendo que searchMovies rechace igual que
++// fetch sin conexión (TypeError: Failed to fetch).
++//
++// La búsqueda se lanza tocando un chip de "recientes": ejecuta exactamente la misma función
++// que escribir en el buscador (handleSearch), pero es un clic normal y funciona en pruebas.
++
++const tmdb = vi.hoisted(() => ({ searchMovies: vi.fn(), getMovie: vi.fn() }));
++
++vi.mock('../services/tmdb', () => tmdb);
++vi.mock('../services/storage', () => ({ obtenerToken: () => null, obtenerUsuario: () => null }));
++vi.mock('../services/busquedas', () => ({
++  obtenerBusquedas: async () => ['matrix'],
++  guardarBusqueda: async () => ['matrix'],
++  borrarBusquedas: async () => undefined,
++}));
++vi.mock('../components/UbicacionCard', () => ({ default: () => null }));
++
++import Home from './Home';
++
++const pelicula = {
++  id: 603,
++  title: 'The Matrix',
++  overview: '',
++  poster_path: null,
++  backdrop_path: null,
++  release_date: '1999-03-30',
++  vote_average: 8.2,
++};
++
++describe('búsqueda de películas sin conexión', () => {
++  beforeEach(() => {
++    vi.resetAllMocks();
++    vi.spyOn(console, 'error').mockImplementation(() => undefined);
++  });
++
++  test('avisa cuando falla la red y permite reintentar hasta ver los resultados', async () => {
++    // Primer intento: sin red. Segundo intento: la red vuelve y responde bien.
++    tmdb.searchMovies
++      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
++      .mockResolvedValueOnce([pelicula]);
++
++    render(<Home />);
++
++    // Estado "cargando" -> "error": la app avisa en lugar de quedarse colgada.
++    fireEvent.click(await screen.findByText('matrix'));
++
++    expect(await screen.findByText(/No pudimos cargar las películas/i)).toBeTruthy();
++    expect(screen.queryByText('The Matrix')).toBeNull();
++
++    // Reintento: aparecen los datos y desaparece el error.
++    fireEvent.click(screen.getByText('Intentar de nuevo'));
++
++    expect(await screen.findByText('The Matrix')).toBeTruthy();
++    await waitFor(() =>
++      expect(screen.queryByText(/No pudimos cargar las películas/i)).toBeNull()
++    );
++    expect(tmdb.searchMovies).toHaveBeenCalledTimes(2);
++    expect(tmdb.searchMovies).toHaveBeenLastCalledWith('matrix');
++  });
++});
+diff --git a/src/pages/Home.tsx b/src/pages/Home.tsx
+index 6cd7c36..80806f7 100644
+--- a/src/pages/Home.tsx
++++ b/src/pages/Home.tsx
+@@ -30,6 +30,7 @@ import {
+   resumirMemoria,
+ } from '../services/memoria';
+ import { obtenerToken } from '../services/storage';
++import UbicacionCard from '../components/UbicacionCard';
+ import './Home.css';
+ 
+ const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+@@ -287,6 +288,8 @@ const Home: React.FC = () => {
+             </IonCard>
+           )}
+ 
++          {!query.trim() && <UbicacionCard />}
++
+           {!query.trim() && (
+             <section className="memoria-section" aria-labelledby="memoria-titulo">
+               <span className="section-eyebrow">TU MEMORIA DE CINE</span>
+diff --git a/src/services/formato.test.ts b/src/services/formato.test.ts
+new file mode 100644
+index 0000000..73ebe75
+--- /dev/null
++++ b/src/services/formato.test.ts
+@@ -0,0 +1,18 @@
++import { describe, expect, test } from 'vitest';
++import { formatearCoordenadas } from './formato';
++
++describe('formatearCoordenadas', () => {
++  // Prueba 1 (caso normal): Neiva está al norte del ecuador y al oeste de Greenwich.
++  // Verifica que se quite el signo negativo del número, se agregue la letra N/O
++  // y se usen 4 decimales por defecto.
++  test('muestra N y O con 4 decimales para una ubicación como Neiva', () => {
++    expect(formatearCoordenadas(2.9273, -75.2819)).toBe('2.9273° N, 75.2819° O');
++  });
++
++  // Prueba 2 (caso borde): hemisferio sur y este, con decimales personalizados.
++  // Verifica que latitud negativa dé "S", longitud positiva dé "E"
++  // y que el parámetro `decimales` redondee bien.
++  test('usa S y E para el hemisferio opuesto y respeta los decimales pedidos', () => {
++    expect(formatearCoordenadas(-33.8688, 151.2093, 2)).toBe('33.87° S, 151.21° E');
++  });
++});
+diff --git a/src/services/formato.ts b/src/services/formato.ts
+new file mode 100644
+index 0000000..a784f8b
+--- /dev/null
++++ b/src/services/formato.ts
+@@ -0,0 +1,13 @@
++// Formateo de coordenadas para mostrarlas al usuario (se usa en la tarjeta de ubicación del Home).
++// Ejemplo: formatearCoordenadas(2.9273, -75.2819) -> "2.9273° N, 75.2819° O"
++
++export const formatearCoordenadas = (
++  latitud: number,
++  longitud: number,
++  decimales = 4
++): string => {
++  const ns = latitud >= 0 ? 'N' : 'S';
++  const eo = longitud >= 0 ? 'E' : 'O';
++
++  return `${Math.abs(latitud).toFixed(decimales)}° ${ns}, ${Math.abs(longitud).toFixed(decimales)}° ${eo}`;
++};
+diff --git a/src/services/ubicacion.test.ts b/src/services/ubicacion.test.ts
+new file mode 100644
+index 0000000..4b82ea7
+--- /dev/null
++++ b/src/services/ubicacion.test.ts
+@@ -0,0 +1,46 @@
++import { beforeEach, describe, expect, test, vi } from 'vitest';
++
++const geolocation = vi.hoisted(() => ({
++  checkPermissions: vi.fn(),
++  requestPermissions: vi.fn(),
++  getCurrentPosition: vi.fn(),
++}));
++
++vi.mock('@capacitor/geolocation', () => ({ Geolocation: geolocation }));
++
++import { obtenerUbicacion } from './ubicacion';
++
++describe('obtenerUbicacion', () => {
++  beforeEach(() => {
++    vi.resetAllMocks();
++  });
++
++  test('si el permiso está concedido devuelve las coordenadas', async () => {
++    geolocation.checkPermissions.mockResolvedValue({ location: 'granted' });
++    geolocation.getCurrentPosition.mockResolvedValue({
++      coords: { latitude: 2.9273, longitude: -75.2819 },
++    });
++
++    await expect(obtenerUbicacion()).resolves.toEqual({
++      estado: 'concedido',
++      latitud: 2.9273,
++      longitud: -75.2819,
++    });
++  });
++
++  test('si el usuario niega el permiso no lee la ubicación y avisa que fue denegado', async () => {
++    geolocation.checkPermissions.mockResolvedValue({ location: 'prompt' });
++    geolocation.requestPermissions.mockResolvedValue({ location: 'denied' });
++
++    await expect(obtenerUbicacion()).resolves.toEqual({ estado: 'denegado' });
++    expect(geolocation.getCurrentPosition).not.toHaveBeenCalled();
++  });
++
++  test('si el navegador rechaza la lectura por permisos también se trata como denegado', async () => {
++    geolocation.checkPermissions.mockRejectedValue(new Error('not supported'));
++    geolocation.requestPermissions.mockRejectedValue(new Error('Not implemented on web'));
++    geolocation.getCurrentPosition.mockRejectedValue(new Error('User denied Geolocation'));
++
++    await expect(obtenerUbicacion()).resolves.toEqual({ estado: 'denegado' });
++  });
++});
+diff --git a/src/services/ubicacion.ts b/src/services/ubicacion.ts
+new file mode 100644
+index 0000000..b4523c2
+--- /dev/null
++++ b/src/services/ubicacion.ts
+@@ -0,0 +1,72 @@
++import { Geolocation } from '@capacitor/geolocation';
++
++// Plugin nativo de hardware (Capacitor Geolocation) con solicitud de permiso y manejo del caso "denegado".
++//
++// Why permissions matter (English):
++// Apps must request permission because location data is private, and the operating system
++// requires the user's explicit consent before an app can read it. When the user denies access,
++// the app should handle it gracefully: explain why the feature is unavailable, keep working,
++// and let the user try again or enable the permission later in the device settings.
++
++export type ResultadoUbicacion =
++  | { estado: 'concedido'; latitud: number; longitud: number }
++  | { estado: 'denegado' }
++  | { estado: 'error'; mensaje: string };
++
++// En la web el navegador no usa los mismos códigos que Android/iOS, por eso se revisa el texto también.
++const esPermisoDenegado = (err: unknown): boolean => {
++  const texto = String((err as { message?: string })?.message ?? err).toLowerCase();
++
++  return (
++    texto.includes('denied') ||
++    texto.includes('permission') ||
++    (err as { code?: number })?.code === 1
++  );
++};
++
++export const obtenerUbicacion = async (): Promise<ResultadoUbicacion> => {
++  try {
++    // 1) Revisar el permiso actual (en algunos navegadores no está soportado).
++    let permiso = 'prompt';
++
++    try {
++      permiso = (await Geolocation.checkPermissions()).location;
++    } catch {
++      // Se pedirá al leer la posición.
++    }
++
++    // 2) Si el usuario aún no ha decidido, se le pide explícitamente (Android/iOS).
++    if (permiso === 'prompt' || permiso === 'prompt-with-rationale') {
++      try {
++        permiso = (await Geolocation.requestPermissions()).location;
++      } catch {
++        // En la web el navegador pregunta al llamar getCurrentPosition.
++      }
++    }
++
++    // 3) Permiso negado: no se intenta leer la ubicación.
++    if (permiso === 'denied') {
++      return { estado: 'denegado' };
++    }
++
++    const posicion = await Geolocation.getCurrentPosition({
++      enableHighAccuracy: false,
++      timeout: 10000,
++    });
++
++    return {
++      estado: 'concedido',
++      latitud: posicion.coords.latitude,
++      longitud: posicion.coords.longitude,
++    };
++  } catch (err) {
++    if (esPermisoDenegado(err)) {
++      return { estado: 'denegado' };
++    }
++
++    return {
++      estado: 'error',
++      mensaje: 'No pudimos obtener tu ubicación. Intenta de nuevo.',
++    };
++  }
++};
